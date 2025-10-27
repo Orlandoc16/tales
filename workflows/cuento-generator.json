@@ -1,0 +1,657 @@
+{
+  "name": "Generador de Cuentos Infantiles Personalizados",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "generate-story",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "generate-story"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Validación y normalización de datos de entrada\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  try {\n    const body = item.json.body;\n    \n    // Validar campos requeridos\n    if (!body.name || !body.gender || !body.interests) {\n      throw new Error('Campos requeridos: name, gender, interests');\n    }\n    \n    // Validar foto\n    if (!body.photo && !body.photo_url) {\n      throw new Error('Se requiere una foto (archivo o URL)');\n    }\n    \n    // Normalizar datos\n    const normalizedData = {\n      id: $uuid(),\n      name: body.name.trim(),\n      gender: body.gender.toLowerCase(),\n      interests: body.interests.trim(),\n      language: body.language || 'es',\n      style: body.style || 'fantasy',\n      photo: body.photo,\n      photo_url: body.photo_url,\n      timestamp: new Date().toISOString(),\n      status: 'processing'\n    };\n    \n    // Validar género\n    if (!['male', 'female', 'other'].includes(normalizedData.gender)) {\n      throw new Error('Género debe ser: male, female, other');\n    }\n    \n    // Validar estilo\n    if (!['fantasy', 'adventure', 'educational', 'scientific'].includes(normalizedData.style)) {\n      throw new Error('Estilo debe ser: fantasy, adventure, educational, scientific');\n    }\n    \n    results.push({ json: normalizedData });\n    \n  } catch (error) {\n    results.push({ \n      json: { \n        error: true, \n        message: error.message,\n        timestamp: new Date().toISOString()\n      } \n    });\n  }\n}\n\nreturn results;"
+      },
+      "id": "validate-input",
+      "name": "Validar Entrada",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.error}}",
+              "operation": "notEqual",
+              "value2": "true"
+            }
+          ]
+        }
+      },
+      "id": "check-validation",
+      "name": "¿Validación OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{{\n  \"success\": false,\n  \"error\": $json.message,\n  \"timestamp\": $json.timestamp\n}}}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "error-response",
+      "name": "Respuesta Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [680, 120]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "cuentos.story_requests",
+        "columns": "id, name, gender, interests, language, style, status, created_at",
+        "additionalFields": {
+          "upsert": false
+        }
+      },
+      "id": "insert-request",
+      "name": "Guardar Solicitud",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [900, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-creds",
+          "name": "Supabase Cuentos"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "// Verificar cache de Redis\nconst Redis = require('redis');\nconst crypto = require('crypto');\n\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  try {\n    const data = item.json;\n    \n    // Generar clave de cache basada en intereses y estilo\n    const cacheKey = crypto\n      .createHash('md5')\n      .update(`${data.interests}-${data.style}-${data.language}`)\n      .digest('hex');\n    \n    // Configurar cliente Redis\n    const redisClient = Redis.createClient({\n      host: process.env.REDIS_HOST || 'localhost',\n      port: process.env.REDIS_PORT || 6379,\n      password: process.env.REDIS_PASSWORD || undefined\n    });\n    \n    // Intentar obtener del cache\n    let cachedStory = null;\n    try {\n      await redisClient.connect();\n      cachedStory = await redisClient.get(`story:${cacheKey}`);\n      await redisClient.disconnect();\n    } catch (redisError) {\n      console.log('Redis no disponible, continuando sin cache');\n    }\n    \n    results.push({\n      json: {\n        ...data,\n        cacheKey,\n        cachedStory: cachedStory ? JSON.parse(cachedStory) : null,\n        useCache: !!cachedStory\n      }\n    });\n    \n  } catch (error) {\n    results.push({\n      json: {\n        ...item.json,\n        cacheError: error.message,\n        useCache: false\n      }\n    });\n  }\n}\n\nreturn results;"
+      },
+      "id": "check-cache",
+      "name": "Verificar Cache",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.useCache}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "cache-decision",
+      "name": "¿Usar Cache?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "contents",
+              "value": "={{[\n  {\n    \"parts\": [\n      {\n        \"text\": `Eres un escritor experto en cuentos infantiles. Crea una historia personalizada para ${$json.name}, un${$json.gender === 'female' ? 'a niña' : $json.gender === 'male' ? ' niño' : ' niñ@'} que le gusta: ${$json.interests}.\n\nRequisitos:\n- Historia en ${$json.language === 'es' ? 'español' : 'inglés'}\n- Estilo: ${$json.style}\n- Máximo 800 palabras\n- Incluir una moraleja\n- Usar el nombre ${$json.name} como protagonista\n- Dividir en 4-5 capítulos cortos\n- Lenguaje apropiado para niños de 6-10 años\n- Incorporar los intereses mencionados de manera creativa\n\nFormato de respuesta:\n{\n  \"title\": \"Título del cuento\",\n  \"chapters\": [\n    {\n      \"number\": 1,\n      \"title\": \"Título del capítulo\",\n      \"content\": \"Contenido del capítulo...\",\n      \"image_prompt\": \"Descripción detallada para generar imagen de este capítulo\"\n    }\n  ],\n  \"moral\": \"Moraleja de la historia\",\n  \"word_count\": 750\n}`\n      }\n    ]\n  }\n]}}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000\n        }
+      },
+      "id": "generate-story",
+      "name": "Generar Historia - Gemini",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1560, 480],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "gemini-auth",
+          "name": "Gemini API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "// Procesar respuesta de Gemini y extraer historia\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  try {\n    const response = item.json;\n    \n    // Extraer contenido de la respuesta de Gemini\n    let storyContent;\n    if (response.candidates && response.candidates[0] && response.candidates[0].content) {\n      const textContent = response.candidates[0].content.parts[0].text;\n      \n      // Intentar parsear como JSON\n      try {\n        storyContent = JSON.parse(textContent);\n      } catch (parseError) {\n        // Si no es JSON válido, crear estructura básica\n        storyContent = {\n          title: `La aventura de ${$('validate-input').item.json.name}`,\n          chapters: [\n            {\n              number: 1,\n              title: \"El comienzo\",\n              content: textContent.substring(0, 500),\n              image_prompt: `${$('validate-input').item.json.name} comenzando una aventura, estilo cartoon colorido`\n            }\n          ],\n          moral: \"Cada aventura nos enseña algo nuevo\",\n          word_count: textContent.split(' ').length\n        };\n      }\n    } else {\n      throw new Error('Respuesta inválida de Gemini');\n    }\n    \n    // Validar estructura de la historia\n    if (!storyContent.title || !storyContent.chapters || !Array.isArray(storyContent.chapters)) {\n      throw new Error('Estructura de historia inválida');\n    }\n    \n    // Asegurar que cada capítulo tenga image_prompt\n    storyContent.chapters = storyContent.chapters.map((chapter, index) => ({\n      ...chapter,\n      number: index + 1,\n      image_prompt: chapter.image_prompt || `${$('validate-input').item.json.name} en una escena del capítulo ${index + 1}, estilo ilustración infantil colorida`\n    }));\n    \n    results.push({\n      json: {\n        ...item.json,\n        story: storyContent,\n        processing_step: 'story_generated'\n      }\n    });\n    \n  } catch (error) {\n    results.push({\n      json: {\n        ...item.json,\n        error: true,\n        message: `Error procesando historia: ${error.message}`,\n        processing_step: 'story_error'\n      }\n    });\n  }\n}\n\nreturn results;"
+      },
+      "id": "process-story",
+      "name": "Procesar Historia",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1780, 480]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "cuentos.story_content",
+        "columns": "story_request_id, title, content, chapters, moral_lesson, word_count, ai_model_used",
+        "additionalFields": {}
+      },
+      "id": "save-story",
+      "name": "Guardar Historia",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [2000, 480],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-creds",
+          "name": "Supabase Cuentos"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "split-chapters",
+      "name": "Dividir Capítulos",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [2220, 480]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Preparar datos para generación de imagen\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const storyData = item.json;\n  const chapters = storyData.story.chapters;\n  const currentBatch = $('split-chapters').context.currentRunIndex;\n  \n  if (chapters && chapters[currentBatch]) {\n    const chapter = chapters[currentBatch];\n    \n    // Crear prompt mejorado para Nanobanana\n    const enhancedPrompt = `\n      Ilustración infantil colorida y amigable de: ${chapter.image_prompt}.\n      Personaje principal: ${storyData.name}, ${storyData.gender === 'female' ? 'niña' : storyData.gender === 'male' ? 'niño' : 'niñ@'}.\n      Estilo: cartoon, colores vibrantes, apropiado para niños.\n      Escena: ${chapter.content.substring(0, 200)}...\n      Evitar: contenido violento o aterrador.\n    `.trim();\n    \n    results.push({\n      json: {\n        ...storyData,\n        currentChapter: chapter,\n        chapterIndex: currentBatch,\n        imagePrompt: enhancedPrompt,\n        processing_step: 'preparing_image'\n      }\n    });\n  }\n}\n\nreturn results;"
+      },
+      "id": "prepare-image-prompt",
+      "name": "Preparar Prompt Imagen",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [2440, 480]
+    },
+    {
+      "parameters": {
+        "url": "https://api.nanobanana.com/v1/generate",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{$env.NANOBANANA_API_KEY}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "prompt",
+              "value": "={{$json.imagePrompt}}"
+            },
+            {
+              "name": "width",
+              "value": "1024"
+            },
+            {
+              "name": "height",
+              "value": "1024"
+            },
+            {
+              "name": "steps",
+              "value": "30"
+            },
+            {
+              "name": "guidance_scale",
+              "value": "7.5"
+            },
+            {
+              "name": "style",
+              "value": "cartoon"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "generate-image",
+      "name": "Generar Imagen - Nanobanana",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [2660, 480],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "nanobanana-auth",
+          "name": "Nanobanana API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "// Procesar imagen generada y subirla a Supabase\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  try {\n    const data = item.json;\n    \n    // Extraer URL de imagen de la respuesta de Nanobanana\n    let imageUrl;\n    if (data.image_url) {\n      imageUrl = data.image_url;\n    } else if (data.images && data.images[0]) {\n      imageUrl = data.images[0].url || data.images[0];\n    } else {\n      throw new Error('No se pudo obtener URL de imagen');\n    }\n    \n    // Preparar datos para guardar en base de datos\n    const imageData = {\n      story_request_id: data.id,\n      image_url: imageUrl,\n      image_type: 'illustration',\n      prompt_used: data.imagePrompt,\n      sequence_order: data.chapterIndex + 1,\n      generation_params: {\n        width: 1024,\n        height: 1024,\n        style: 'cartoon',\n        ai_model: 'nanobanana'\n      },\n      ai_model_used: 'nanobanana'\n    };\n    \n    results.push({\n      json: {\n        ...data,\n        generatedImage: imageData,\n        processing_step: 'image_generated'\n      }\n    });\n    \n  } catch (error) {\n    results.push({\n      json: {\n        ...item.json,\n        error: true,\n        message: `Error procesando imagen: ${error.message}`,\n        processing_step: 'image_error'\n      }\n    });\n  }\n}\n\nreturn results;"
+      },
+      "id": "process-image",
+      "name": "Procesar Imagen",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [2880, 480]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "cuentos.generated_images",
+        "columns": "story_request_id, image_url, image_type, prompt_used, sequence_order, generation_params, ai_model_used"
+      },
+      "id": "save-image",
+      "name": "Guardar Imagen",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [3100, 480],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-creds",
+          "name": "Supabase Cuentos"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "// Recopilar todas las imágenes generadas y preparar para PDF\nconst items = $input.all();\n\n// Obtener datos del primer item (todos deberían tener la misma historia)\nconst storyData = items[0].json;\n\n// Recopilar todas las imágenes generadas\nconst generatedImages = items.map(item => item.json.generatedImage);\n\n// Combinar historia con imágenes\nconst completeStory = {\n  ...storyData,\n  story: {\n    ...storyData.story,\n    chapters: storyData.story.chapters.map((chapter, index) => ({\n      ...chapter,\n      image_url: generatedImages[index]?.image_url || null\n    }))\n  },\n  generatedImages,\n  processing_step: 'preparing_pdf'\n};\n\nreturn [{ json: completeStory }];"
+      },
+      "id": "collect-images",
+      "name": "Recopilar Imágenes",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [3320, 480]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Generar HTML para el PDF con diseño profesional\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const data = item.json;\n  const story = data.story;\n  \n  // Template HTML con diseño mejorado\n  const htmlTemplate = `\n<!DOCTYPE html>\n<html lang=\"${data.language}\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>${story.title}</title>\n    <link href=\"https://fonts.googleapis.com/css2?family=Fredoka+One:wght@400&family=Nunito:wght@400;600;700&display=swap\" rel=\"stylesheet\">\n    <style>\n        * {\n            margin: 0;\n            padding: 0;\n            box-sizing: border-box;\n        }\n        \n        body {\n            font-family: 'Nunito', sans-serif;\n            line-height: 1.6;\n            color: #2c3e50;\n            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);\n            min-height: 100vh;\n        }\n        \n        .page {\n            width: 210mm;\n            min-height: 297mm;\n            padding: 20mm;\n            margin: 0 auto;\n            background: white;\n            box-shadow: 0 0 20px rgba(0,0,0,0.1);\n            page-break-after: always;\n        }\n        \n        .cover {\n            text-align: center;\n            display: flex;\n            flex-direction: column;\n            justify-content: center;\n            align-items: center;\n            min-height: 257mm;\n            background: linear-gradient(45deg, #FF6B6B, #4ECDC4, #45B7D1);\n            color: white;\n            border-radius: 15px;\n            position: relative;\n            overflow: hidden;\n        }\n        \n        .cover::before {\n            content: '';\n            position: absolute;\n            top: 0;\n            left: 0;\n            right: 0;\n            bottom: 0;\n            background: url('data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\"><circle cx=\"20\" cy=\"20\" r=\"2\" fill=\"white\" opacity=\"0.1\"/><circle cx=\"80\" cy=\"40\" r=\"3\" fill=\"white\" opacity=\"0.1\"/><circle cx=\"40\" cy=\"80\" r=\"2\" fill=\"white\" opacity=\"0.1\"/></svg>');\n        }\n        \n        .cover h1 {\n            font-family: 'Fredoka One', cursive;\n            font-size: 3.5em;\n            margin-bottom: 0.5em;\n            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);\n            z-index: 1;\n        }\n        \n        .cover .subtitle {\n            font-size: 1.5em;\n            margin-bottom: 2em;\n            opacity: 0.9;\n            z-index: 1;\n        }\n        \n        .chapter {\n            margin-bottom: 3em;\n            page-break-inside: avoid;\n        }\n        \n        .chapter-title {\n            font-family: 'Fredoka One', cursive;\n            font-size: 2em;\n            color: #FF6B6B;\n            margin-bottom: 1em;\n            text-align: center;\n            padding: 0.5em;\n            background: linear-gradient(45deg, #FFE5E5, #E5F9F6);\n            border-radius: 15px;\n            border: 3px solid #FF6B6B;\n        }\n        \n        .chapter-content {\n            display: grid;\n            grid-template-columns: 1fr 1fr;\n            gap: 2em;\n            align-items: start;\n        }\n        \n        .chapter-text {\n            font-size: 1.1em;\n            text-align: justify;\n            padding: 1.5em;\n            background: #f8f9fa;\n            border-radius: 10px;\n            border-left: 5px solid #4ECDC4;\n        }\n        \n        .chapter-image {\n            text-align: center;\n        }\n        \n        .chapter-image img {\n            max-width: 100%;\n            height: auto;\n            border-radius: 15px;\n            box-shadow: 0 8px 25px rgba(0,0,0,0.15);\n            border: 3px solid #45B7D1;\n        }\n        \n        .moral {\n            background: linear-gradient(45deg, #FFEAA7, #FDCB6E);\n            padding: 2em;\n            border-radius: 15px;\n            text-align: center;\n            margin-top: 3em;\n            border: 3px solid #E17055;\n        }\n        \n        .moral h3 {\n            font-family: 'Fredoka One', cursive;\n            font-size: 1.8em;\n            color: #E17055;\n            margin-bottom: 1em;\n        }\n        \n        .moral p {\n            font-size: 1.2em;\n            font-weight: 600;\n            color: #2d3436;\n        }\n        \n        .back-cover {\n            background: linear-gradient(135deg, #4ECDC4, #45B7D1);\n            color: white;\n            text-align: center;\n            display: flex;\n            flex-direction: column;\n            justify-content: center;\n            align-items: center;\n            border-radius: 15px;\n        }\n        \n        .back-cover h2 {\n            font-family: 'Fredoka One', cursive;\n            font-size: 2.5em;\n            margin-bottom: 1em;\n        }\n        \n        .back-cover p {\n            font-size: 1.3em;\n            max-width: 80%;\n            line-height: 1.8;\n        }\n        \n        @media print {\n            body { background: white; }\n            .page { box-shadow: none; }\n        }\n    </style>\n</head>\n<body>\n    <!-- Portada -->\n    <div class=\"page\">\n        <div class=\"cover\">\n            <h1>${story.title}</h1>\n            <div class=\"subtitle\">Una aventura personalizada para ${data.name}</div>\n        </div>\n    </div>\n    \n    <!-- Capítulos -->\n    ${story.chapters.map((chapter, index) => `\n    <div class=\"page\">\n        <div class=\"chapter\">\n            <h2 class=\"chapter-title\">${chapter.title}</h2>\n            <div class=\"chapter-content\">\n                <div class=\"chapter-text\">\n                    <p>${chapter.content}</p>\n                </div>\n                <div class=\"chapter-image\">\n                    ${chapter.image_url ? `<img src=\"${chapter.image_url}\" alt=\"Ilustración del capítulo ${chapter.number}\" />` : '<div style=\"background: #f0f0f0; height: 300px; border-radius: 15px; display: flex; align-items: center; justify-content: center; color: #666;\">Imagen en proceso...</div>'}\n                </div>\n            </div>\n        </div>\n    </div>\n    `).join('')}\n    \n    <!-- Moraleja -->\n    <div class=\"page\">\n        <div class=\"moral\">\n            <h3>🌟 Moraleja 🌟</h3>\n            <p>${story.moral}</p>\n        </div>\n    </div>\n    \n    <!-- Contraportada -->\n    <div class=\"page\">\n        <div class=\"back-cover\">\n            <h2>¡Fin de la Aventura!</h2>\n            <p>Esperamos que hayas disfrutado esta historia personalizada creada especialmente para ${data.name}. Cada aventura nos enseña algo nuevo y nos ayuda a crecer.</p>\n            <p style=\"margin-top: 2em; font-size: 1em; opacity: 0.8;\">Generado con ❤️ por el Generador de Cuentos Infantiles</p>\n        </div>\n    </div>\n</body>\n</html>\n  `;\n  \n  results.push({\n    json: {\n      ...data,\n      htmlContent: htmlTemplate,\n      processing_step: 'html_generated'\n    }\n  });\n}\n\nreturn results;"
+      },
+      "id": "generate-html",
+      "name": "Generar HTML",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [3540, 480]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Generar PDF usando Puppeteer\nconst puppeteer = require('puppeteer');\nconst fs = require('fs');\nconst path = require('path');\n\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  try {\n    const data = item.json;\n    const htmlContent = data.htmlContent;\n    \n    // Configurar Puppeteer\n    const browser = await puppeteer.launch({\n      headless: true,\n      args: ['--no-sandbox', '--disable-setuid-sandbox']\n    });\n    \n    const page = await browser.newPage();\n    \n    // Configurar contenido HTML\n    await page.setContent(htmlContent, {\n      waitUntil: 'networkidle0',\n      timeout: 30000\n    });\n    \n    // Generar PDF\n    const pdfBuffer = await page.pdf({\n      format: 'A4',\n      printBackground: true,\n      margin: {\n        top: '0mm',\n        right: '0mm',\n        bottom: '0mm',\n        left: '0mm'\n      },\n      preferCSSPageSize: true\n    });\n    \n    await browser.close();\n    \n    // Guardar PDF temporalmente\n    const tempDir = process.env.PDF_TEMP_PATH || './temp/pdfs';\n    if (!fs.existsSync(tempDir)) {\n      fs.mkdirSync(tempDir, { recursive: true });\n    }\n    \n    const fileName = `cuento_${data.id}_${Date.now()}.pdf`;\n    const filePath = path.join(tempDir, fileName);\n    \n    fs.writeFileSync(filePath, pdfBuffer);\n    \n    results.push({\n      json: {\n        ...data,\n        pdfPath: filePath,\n        pdfFileName: fileName,\n        pdfSize: pdfBuffer.length,\n        processing_step: 'pdf_generated'\n      }\n    });\n    \n  } catch (error) {\n    results.push({\n      json: {\n        ...item.json,\n        error: true,\n        message: `Error generando PDF: ${error.message}`,\n        processing_step: 'pdf_error'\n      }\n    });\n  }\n}\n\nreturn results;"
+      },
+      "id": "generate-pdf",
+      "name": "Generar PDF",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [3760, 480]
+    },
+    {
+      "parameters": {
+        "operation": "upload",
+        "bucket": "pdfs",
+        "fileName": "={{$json.pdfFileName}}",
+        "options": {
+          "makePublic": true
+        }
+      },
+      "id": "upload-pdf",
+      "name": "Subir PDF a Supabase",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [3980, 480],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-creds",
+          "name": "Supabase Cuentos"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "cuentos.pdf_outputs",
+        "columns": "story_request_id, pdf_url, file_size_bytes, generation_time_seconds, template_used"
+      },
+      "id": "save-pdf-record",
+      "name": "Guardar Registro PDF",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [4200, 480],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-creds",
+          "name": "Supabase Cuentos"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "table": "cuentos.story_requests",
+        "updateKey": "id",
+        "columns": "status, processing_completed_at",
+        "additionalFields": {}
+      },
+      "id": "update-status",
+      "name": "Actualizar Estado",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [4420, 480],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-creds",
+          "name": "Supabase Cuentos"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{{\n  \"success\": true,\n  \"story_id\": $json.id,\n  \"pdf_url\": $json.pdf_url,\n  \"title\": $json.story.title,\n  \"processing_time\": Math.round((new Date() - new Date($json.timestamp)) / 1000),\n  \"images_count\": $json.generatedImages.length,\n  \"word_count\": $json.story.word_count,\n  \"chapters\": $json.story.chapters.length,\n  \"download_url\": $json.pdf_url,\n  \"timestamp\": new Date().toISOString()\n}}}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "success-response",
+      "name": "Respuesta Exitosa",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [4640, 480]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Usar historia del cache\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const cachedStory = item.json.cachedStory;\n  \n  results.push({\n    json: {\n      ...item.json,\n      story: cachedStory.story,\n      generatedImages: cachedStory.images || [],\n      processing_step: 'using_cache',\n      fromCache: true\n    }\n  });\n}\n\nreturn results;"
+      },
+      "id": "use-cache",
+      "name": "Usar Cache",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1560, 120]
+    }
+  ],
+  "connections": {
+    "webhook-trigger": {
+      "main": [
+        [
+          {
+            "node": "validate-input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "validate-input": {
+      "main": [
+        [
+          {
+            "node": "check-validation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check-validation": {
+      "main": [
+        [
+          {
+            "node": "insert-request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "error-response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "insert-request": {
+      "main": [
+        [
+          {
+            "node": "check-cache",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check-cache": {
+      "main": [
+        [
+          {
+            "node": "cache-decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "cache-decision": {
+      "main": [
+        [
+          {
+            "node": "use-cache",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "generate-story",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "generate-story": {
+      "main": [
+        [
+          {
+            "node": "process-story",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "process-story": {
+      "main": [
+        [
+          {
+            "node": "save-story",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "save-story": {
+      "main": [
+        [
+          {
+            "node": "split-chapters",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "split-chapters": {
+      "main": [
+        [
+          {
+            "node": "prepare-image-prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "prepare-image-prompt": {
+      "main": [
+        [
+          {
+            "node": "generate-image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "generate-image": {
+      "main": [
+        [
+          {
+            "node": "process-image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "process-image": {
+      "main": [
+        [
+          {
+            "node": "save-image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "save-image": {
+      "main": [
+        [
+          {
+            "node": "collect-images",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "collect-images": {
+      "main": [
+        [
+          {
+            "node": "generate-html",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "generate-html": {
+      "main": [
+        [
+          {
+            "node": "generate-pdf",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "generate-pdf": {
+      "main": [
+        [
+          {
+            "node": "upload-pdf",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "upload-pdf": {
+      "main": [
+        [
+          {
+            "node": "save-pdf-record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "save-pdf-record": {
+      "main": [
+        [
+          {
+            "node": "update-status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "update-status": {
+      "main": [
+        [
+          {
+            "node": "success-response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "use-cache": {
+      "main": [
+        [
+          {
+            "node": "generate-html",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2024-01-20T10:00:00.000Z",
+  "versionId": "1"
+}

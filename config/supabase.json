@@ -1,0 +1,9 @@
+{
+  "buckets": {
+    "photos": "photos",
+    "generatedImages": "generated-images",
+    "pdfs": "pdfs",
+    "templates": "templates"
+  },
+  "schema": "cuentos"
+}

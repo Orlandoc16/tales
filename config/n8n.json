@@ -1,0 +1,15 @@
+{
+  "version": "1.0.0",
+  "settings": {
+    "executionTimeout": 300,
+    "maxExecutionTimeout": 600,
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true
+  },
+  "endpoints": {
+    "webhook": "/webhook/generate-story",
+    "status": "/webhook/status",
+    "download": "/webhook/download"
+  }
+}

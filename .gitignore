@@ -1,0 +1,62 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+temp/
+*.tmp
+*.temp
+
+# n8n
+.n8n/
+# workflows/*.json  # Comentado para incluir workflows en el repo
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Build outputs
+dist/
+build/
+
+# Cache
+.cache/
+*.cache
+
+# Uploads y archivos temporales generados
+uploads/*
+!uploads/.gitkeep
+temp/images/*
+!temp/images/.gitkeep
+temp/pdfs/*
+!temp/pdfs/.gitkeep
+
+# Health check logs (mantener solo el más reciente)
+logs/*.json
+
+# Archivos de configuración sensibles
+config/secrets.json

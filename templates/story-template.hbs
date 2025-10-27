@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="{{language}}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{story.title}}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One:wght@400&family=Nunito:wght@400;600;700&family=Comic+Neue:wght@400;700&family=Bubblegum+Sans&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./pdf-styles.css">
+    <style>
+        /* Estilos específicos para este cuento */
+        body {
+            background: var(--{{style}}-bg, var(--fantasy-bg));
+        }
+        
+        .theme-{{style}} {
+            --primary: var(--{{style}}-primary, var(--fantasy-primary));
+            --secondary: var(--{{style}}-secondary, var(--fantasy-secondary));
+            --accent: var(--{{style}}-accent, var(--fantasy-accent));
+        }
+        
+        .cover {
+            background: var(--{{style}}-bg, var(--fantasy-bg));
+        }
+        
+        .chapter-title {
+            color: var(--{{style}}-primary, var(--fantasy-primary));
+            border-color: var(--{{style}}-primary, var(--fantasy-primary));
+        }
+        
+        .chapter-text {
+            border-left-color: var(--{{style}}-secondary, var(--fantasy-secondary));
+        }
+        
+        .chapter-image img {
+            border-color: var(--{{style}}-accent, var(--fantasy-accent));
+        }
+        
+        /* Personalización por género */
+        {{#if (eq gender 'female')}}
+        .cover::after {
+            content: '👸';
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 3em;
+            opacity: 0.3;
+        }
+        {{else if (eq gender 'male')}}
+        .cover::after {
+            content: '🤴';
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 3em;
+            opacity: 0.3;
+        }
+        {{else}}
+        .cover::after {
+            content: '⭐';
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 3em;
+            opacity: 0.3;
+        }
+        {{/if}}
+    </style>
+</head>
+<body class="theme-{{style}}">
+    <!-- Portada -->
+    <div class="page">
+        <div class="cover">
+            <h1>{{story.title}}</h1>
+            <div class="subtitle">Una aventura personalizada para {{name}}</div>
+            
+            {{#if photo_url}}
+            <div class="character-preview">
+                <img src="{{photo_url}}" alt="{{name}}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
+            </div>
+            {{else}}
+            <div class="character-preview">
+                {{#if (eq gender 'female')}}👧{{else if (eq gender 'male')}}👦{{else}}🧒{{/if}}
+            </div>
+            {{/if}}
+            
+            <div style="margin-top: 2em; font-size: 1.2em; opacity: 0.8;">
+                <p>Intereses: {{interests}}</p>
+                <p>Estilo: {{capitalize style}}</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Capítulos -->
+    {{#each story.chapters}}
+    <div class="page">
+        <div class="chapter">
+            <h2 class="chapter-title">
+                Capítulo {{number}}: {{title}}
+            </h2>
+            <div class="chapter-content">
+                <div class="chapter-text">
+                    <p>{{content}}</p>
+                </div>
+                <div class="chapter-image">
+                    {{#if image_url}}
+                        <img src="{{image_url}}" alt="Ilustración del capítulo {{number}}" />
+                    {{else}}
+                        <div class="placeholder">
+                            <div>
+                                <p>🎨 Imagen en proceso...</p>
+                                <small>{{image_prompt}}</small>
+                            </div>
+                        </div>
+                    {{/if}}
+                </div>
+            </div>
+        </div>
+    </div>
+    {{/each}}
+    
+    <!-- Página de Moraleja -->
+    <div class="page">
+        <div class="moral">
+            <h3>🌟 Moraleja 🌟</h3>
+            <p>{{story.moral}}</p>
+        </div>
+        
+        <!-- Actividades adicionales -->
+        <div style="margin-top: 3em; padding: 2em; background: #f8f9fa; border-radius: 15px; border: 2px dashed var(--primary);">
+            <h3 style="text-align: center; color: var(--primary); font-family: 'Fredoka One', cursive; margin-bottom: 1em;">
+                🎯 Actividades para {{name}}
+            </h3>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1em;">
+                <div style="padding: 1em; background: white; border-radius: 10px;">
+                    <h4 style="color: var(--secondary);">✏️ Dibuja tu escena favorita</h4>
+                    <div style="height: 100px; border: 2px dashed #ccc; border-radius: 5px; margin-top: 0.5em;"></div>
+                </div>
+                
+                <div style="padding: 1em; background: white; border-radius: 10px;">
+                    <h4 style="color: var(--secondary);">💭 ¿Qué aprendiste?</h4>
+                    <div style="height: 100px; border: 2px dashed #ccc; border-radius: 5px; margin-top: 0.5em;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Contraportada -->
+    <div class="page">
+        <div class="back-cover">
+            <h2>¡Fin de la Aventura!</h2>
+            <p>
+                Esperamos que hayas disfrutado esta historia personalizada creada especialmente para {{name}}. 
+                Cada aventura nos enseña algo nuevo y nos ayuda a crecer.
+            </p>
+            
+            <div class="stats">
+                <div class="stat">
+                    <span class="stat-number">{{story.chapters.length}}</span>
+                    <span class="stat-label">Capítulos</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-number">{{story.word_count}}</span>
+                    <span class="stat-label">Palabras</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-number">{{images_count}}</span>
+                    <span class="stat-label">Ilustraciones</span>
+                </div>
+            </div>
+            
+            <div style="margin-top: 3em;">
+                <p style="font-size: 1em; opacity: 0.8;">
+                    Generado con ❤️ por el Generador de Cuentos Infantiles
+                </p>
+                <p style="font-size: 0.9em; opacity: 0.6; margin-top: 0.5em;">
+                    {{formatDate timestamp}}
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Página de créditos (opcional) -->
+    {{#if show_credits}}
+    <div class="page">
+        <div style="padding: 2em; text-align: center;">
+            <h2 style="font-family: 'Fredoka One', cursive; color: var(--primary); margin-bottom: 2em;">
+                🎭 Créditos de la Historia
+            </h2>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2em; text-align: left;">
+                <div>
+                    <h3 style="color: var(--secondary); margin-bottom: 1em;">📝 Historia</h3>
+                    <p><strong>Protagonista:</strong> {{name}}</p>
+                    <p><strong>Género:</strong> {{capitalize gender}}</p>
+                    <p><strong>Intereses:</strong> {{interests}}</p>
+                    <p><strong>Estilo:</strong> {{capitalize style}}</p>
+                    <p><strong>Idioma:</strong> {{capitalize language}}</p>
+                </div>
+                
+                <div>
+                    <h3 style="color: var(--secondary); margin-bottom: 1em;">🤖 Tecnología</h3>
+                    <p><strong>IA de Texto:</strong> Gemini AI</p>
+                    <p><strong>IA de Imágenes:</strong> Nanobanana</p>
+                    <p><strong>Generación PDF:</strong> Puppeteer</p>
+                    <p><strong>Plataforma:</strong> n8n Workflow</p>
+                    <p><strong>Base de Datos:</strong> Supabase</p>
+                </div>
+            </div>
+            
+            <div style="margin-top: 3em; padding: 2em; background: linear-gradient(45deg, #f8f9fa, #e9ecef); border-radius: 15px;">
+                <h3 style="color: var(--primary); margin-bottom: 1em;">🌟 Mensaje Especial</h3>
+                <p style="font-style: italic; color: #666;">
+                    "Cada niño es único y especial. Esta historia fue creada pensando en {{name}} 
+                    y en todo lo que le gusta hacer. ¡Sigue explorando, aprendiendo y soñando!"
+                </p>
+            </div>
+        </div>
+    </div>
+    {{/if}}
+</body>
+</html>

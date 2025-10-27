@@ -1,0 +1,420 @@
+/* Estilos base para PDFs de cuentos infantiles */
+
+/* Importar fuentes de Google */
+@import url('https://fonts.googleapis.com/css2?family=Fredoka+One:wght@400&family=Nunito:wght@400;600;700&family=Comic+Neue:wght@400;700&family=Bubblegum+Sans&display=swap');
+
+/* Variables CSS para temas */
+:root {
+  /* Tema Fantasy */
+  --fantasy-primary: #FF6B6B;
+  --fantasy-secondary: #4ECDC4;
+  --fantasy-accent: #45B7D1;
+  --fantasy-bg: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  
+  /* Tema Adventure */
+  --adventure-primary: #FF8C42;
+  --adventure-secondary: #6A994E;
+  --adventure-accent: #A7C957;
+  --adventure-bg: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  
+  /* Tema Educational */
+  --educational-primary: #4A90E2;
+  --educational-secondary: #7ED321;
+  --educational-accent: #F5A623;
+  --educational-bg: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  
+  /* Tema Scientific */
+  --scientific-primary: #9013FE;
+  --scientific-secondary: #00BCD4;
+  --scientific-accent: #4CAF50;
+  --scientific-bg: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+/* Reset y base */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Nunito', sans-serif;
+  line-height: 1.6;
+  color: #2c3e50;
+  background: var(--fantasy-bg);
+  min-height: 100vh;
+}
+
+/* Estructura de página */
+.page {
+  width: 210mm;
+  min-height: 297mm;
+  padding: 20mm;
+  margin: 0 auto;
+  background: white;
+  box-shadow: 0 0 20px rgba(0,0,0,0.1);
+  page-break-after: always;
+  position: relative;
+}
+
+/* Portada */
+.cover {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 257mm;
+  background: var(--fantasy-bg);
+  color: white;
+  border-radius: 15px;
+  position: relative;
+  overflow: hidden;
+}
+
+.cover::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="20" cy="20" r="2" fill="white" opacity="0.1"/><circle cx="80" cy="40" r="3" fill="white" opacity="0.1"/><circle cx="40" cy="80" r="2" fill="white" opacity="0.1"/><star cx="60" cy="20" r="1.5" fill="white" opacity="0.15"/><star cx="30" cy="60" r="1" fill="white" opacity="0.1"/></svg>');
+}
+
+.cover h1 {
+  font-family: 'Fredoka One', cursive;
+  font-size: 3.5em;
+  margin-bottom: 0.5em;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+  z-index: 1;
+  position: relative;
+}
+
+.cover .subtitle {
+  font-size: 1.5em;
+  margin-bottom: 2em;
+  opacity: 0.9;
+  z-index: 1;
+  position: relative;
+}
+
+.cover .character-preview {
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  border: 5px solid white;
+  margin: 2em auto;
+  background: rgba(255,255,255,0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 4em;
+  z-index: 1;
+  position: relative;
+}
+
+/* Capítulos */
+.chapter {
+  margin-bottom: 3em;
+  page-break-inside: avoid;
+}
+
+.chapter-title {
+  font-family: 'Fredoka One', cursive;
+  font-size: 2em;
+  color: var(--fantasy-primary);
+  margin-bottom: 1em;
+  text-align: center;
+  padding: 0.5em;
+  background: linear-gradient(45deg, #FFE5E5, #E5F9F6);
+  border-radius: 15px;
+  border: 3px solid var(--fantasy-primary);
+  position: relative;
+}
+
+.chapter-title::before {
+  content: '✨';
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.chapter-title::after {
+  content: '✨';
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.chapter-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2em;
+  align-items: start;
+}
+
+.chapter-text {
+  font-size: 1.1em;
+  text-align: justify;
+  padding: 1.5em;
+  background: #f8f9fa;
+  border-radius: 10px;
+  border-left: 5px solid var(--fantasy-secondary);
+  position: relative;
+}
+
+.chapter-text::before {
+  content: '"';
+  font-size: 4em;
+  color: var(--fantasy-secondary);
+  position: absolute;
+  top: -10px;
+  left: 10px;
+  opacity: 0.3;
+}
+
+.chapter-image {
+  text-align: center;
+}
+
+.chapter-image img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 15px;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+  border: 3px solid var(--fantasy-accent);
+}
+
+.chapter-image .placeholder {
+  background: linear-gradient(45deg, #f0f0f0, #e0e0e0);
+  height: 300px;
+  border-radius: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #666;
+  font-style: italic;
+  border: 3px dashed #ccc;
+}
+
+/* Moraleja */
+.moral {
+  background: linear-gradient(45deg, #FFEAA7, #FDCB6E);
+  padding: 2em;
+  border-radius: 15px;
+  text-align: center;
+  margin-top: 3em;
+  border: 3px solid #E17055;
+  position: relative;
+}
+
+.moral::before {
+  content: '🌟';
+  position: absolute;
+  top: -15px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: white;
+  padding: 5px 10px;
+  border-radius: 50%;
+  font-size: 1.5em;
+}
+
+.moral h3 {
+  font-family: 'Fredoka One', cursive;
+  font-size: 1.8em;
+  color: #E17055;
+  margin-bottom: 1em;
+}
+
+.moral p {
+  font-size: 1.2em;
+  font-weight: 600;
+  color: #2d3436;
+}
+
+/* Contraportada */
+.back-cover {
+  background: linear-gradient(135deg, var(--fantasy-secondary), var(--fantasy-accent));
+  color: white;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  border-radius: 15px;
+  position: relative;
+}
+
+.back-cover h2 {
+  font-family: 'Fredoka One', cursive;
+  font-size: 2.5em;
+  margin-bottom: 1em;
+}
+
+.back-cover p {
+  font-size: 1.3em;
+  max-width: 80%;
+  line-height: 1.8;
+}
+
+.back-cover .stats {
+  margin-top: 2em;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1em;
+  width: 100%;
+  max-width: 400px;
+}
+
+.back-cover .stat {
+  background: rgba(255,255,255,0.2);
+  padding: 1em;
+  border-radius: 10px;
+  backdrop-filter: blur(10px);
+}
+
+.back-cover .stat-number {
+  font-size: 2em;
+  font-weight: bold;
+  display: block;
+}
+
+.back-cover .stat-label {
+  font-size: 0.9em;
+  opacity: 0.8;
+}
+
+/* Temas específicos */
+.theme-adventure {
+  --primary: var(--adventure-primary);
+  --secondary: var(--adventure-secondary);
+  --accent: var(--adventure-accent);
+}
+
+.theme-adventure .cover {
+  background: var(--adventure-bg);
+}
+
+.theme-adventure .chapter-title {
+  color: var(--adventure-primary);
+  border-color: var(--adventure-primary);
+}
+
+.theme-adventure .chapter-text {
+  border-left-color: var(--adventure-secondary);
+}
+
+.theme-adventure .chapter-image img {
+  border-color: var(--adventure-accent);
+}
+
+.theme-educational {
+  --primary: var(--educational-primary);
+  --secondary: var(--educational-secondary);
+  --accent: var(--educational-accent);
+}
+
+.theme-educational .cover {
+  background: var(--educational-bg);
+}
+
+.theme-educational .chapter-title {
+  color: var(--educational-primary);
+  border-color: var(--educational-primary);
+}
+
+.theme-educational .chapter-text {
+  border-left-color: var(--educational-secondary);
+}
+
+.theme-educational .chapter-image img {
+  border-color: var(--educational-accent);
+}
+
+.theme-scientific {
+  --primary: var(--scientific-primary);
+  --secondary: var(--scientific-secondary);
+  --accent: var(--scientific-accent);
+}
+
+.theme-scientific .cover {
+  background: var(--scientific-bg);
+}
+
+.theme-scientific .chapter-title {
+  color: var(--scientific-primary);
+  border-color: var(--scientific-primary);
+}
+
+.theme-scientific .chapter-text {
+  border-left-color: var(--scientific-secondary);
+}
+
+.theme-scientific .chapter-image img {
+  border-color: var(--scientific-accent);
+}
+
+/* Responsive para diferentes tamaños */
+@media print {
+  body { 
+    background: white; 
+  }
+  
+  .page { 
+    box-shadow: none; 
+    margin: 0;
+  }
+  
+  .chapter-content {
+    grid-template-columns: 1fr;
+    gap: 1em;
+  }
+  
+  .chapter-image {
+    order: -1;
+  }
+}
+
+/* Animaciones sutiles para vista previa */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.chapter {
+  animation: fadeIn 0.6s ease-out;
+}
+
+/* Decoraciones adicionales */
+.decorative-border {
+  border: 3px solid;
+  border-image: linear-gradient(45deg, var(--primary), var(--secondary)) 1;
+  border-radius: 15px;
+}
+
+.shadow-box {
+  box-shadow: 
+    0 4px 6px rgba(0,0,0,0.1),
+    0 1px 3px rgba(0,0,0,0.08);
+}
+
+.gradient-text {
+  background: linear-gradient(45deg, var(--primary), var(--secondary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Elementos interactivos para vista previa web */
+.interactive-element {
+  transition: all 0.3s ease;
+}
+
+.interactive-element:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
