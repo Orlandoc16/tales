@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  # Aplicación principal - Generador de Cuentos
+  cuentos-app:
+    build: .
+    container_name: cuentos-infantiles
+    ports:
+      - "5678:5678"
+    environment:
+      # n8n Configuration
+      - N8N_HOST=0.0.0.0
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=admin
+      - N8N_BASIC_AUTH_PASSWORD=changeme123
+      
+      # Database
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      
+      # AI Services
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL=gemini-1.5-pro
+      - NANOBANANA_API_KEY=${NANOBANANA_API_KEY}
+      - NANOBANANA_BASE_URL=https://api.nanobanana.com
+      
+      # Redis
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=
+      - REDIS_DB=0
+      
+      # Storage
+      - PDF_TEMP_PATH=/app/temp/pdfs
+      - STORAGE_BUCKET=cuentos-infantiles
+      
+      # Monitoring
+      - LOG_LEVEL=info
+      - NODE_ENV=development
+    volumes:
+      - ./uploads:/app/uploads
+      - ./temp:/app/temp
+      - ./logs:/app/logs
+      - ./workflows:/app/workflows
+    depends_on:
+      - redis
+    networks:
+      - cuentos-network
+    restart: unless-stopped
+
+  # Redis para cache
+  redis:
+    image: redis:7-alpine
+    container_name: cuentos-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - cuentos-network
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
+  # Nginx para proxy reverso (opcional para producción)
+  nginx:
+    image: nginx:alpine
+    container_name: cuentos-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - cuentos-app
+    networks:
+      - cuentos-network
+    restart: unless-stopped
+    profiles:
+      - production
+
+volumes:
+  redis_data:
+    driver: local
+
+networks:
+  cuentos-network:
+    driver: bridge
